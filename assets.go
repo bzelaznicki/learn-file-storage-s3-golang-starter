@@ -1,13 +1,13 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"mime"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/google/uuid"
 )
 
 func (cfg apiConfig) ensureAssetsDir() error {
@@ -17,7 +17,7 @@ func (cfg apiConfig) ensureAssetsDir() error {
 	return nil
 }
 
-func getAssetPath(videoID uuid.UUID, mediaType string) string {
+func getAssetPath(videoID string, mediaType string) string {
 	ext := mediaTypeToExt(mediaType)
 	return fmt.Sprintf("%s%s", videoID, ext)
 }
@@ -37,6 +37,20 @@ func mediaTypeToExt(mediaType string) string {
 		return ".bin"
 	}
 	return "." + parts[1]
+}
+
+func generateFileName() (string, error) {
+	data := make([]byte, 32)
+
+	_, err := rand.Read(data)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to generate data: %s", err)
+	}
+	encoded := base64.URLEncoding.EncodeToString(data)
+
+	return encoded, nil
+
 }
 
 func verifyMediaType(mediaType string) error {

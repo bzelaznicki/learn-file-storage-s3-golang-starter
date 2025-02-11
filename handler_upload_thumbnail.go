@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,15 +68,9 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
 	}
+	encodedImage := base64.StdEncoding.EncodeToString(thumbnailData)
 
-	tnail := thumbnail{
-		data:      thumbnailData,
-		mediaType: mediaType,
-	}
-
-	videoThumbnails[videoMetaData.ID] = tnail
-	thumbnailURL := "http://localhost:8091/api/thumbnails/" + videoMetaData.ID.String()
-	fmt.Printf("Setting thumbnail URL to: %s\n", thumbnailURL)
+	thumbnailURL := fmt.Sprintf("data:%s;base64,%s", mediaType, encodedImage)
 
 	err = cfg.db.UpdateVideo(database.Video{
 		ID:           videoMetaData.ID,
@@ -86,8 +81,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 			UserID:      videoMetaData.UserID,
 		},
 	})
-
-	// Add this debug print
 
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error updating video", err)
@@ -100,7 +93,6 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusInternalServerError, "error getting updated video", err)
 		return
 	}
-	fmt.Printf("Updated video: %+v\n", updatedVideo)
 
 	respondWithJSON(w, http.StatusOK, updatedVideo)
 }

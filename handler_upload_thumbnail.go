@@ -1,10 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
@@ -48,7 +50,24 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 	defer fileData.Close()
 
-	mediaType := imageHeader.Header.Get("Content-Type")
+	mediaType, _, err := mime.ParseMediaType(imageHeader.Header.Get("Content-Type"))
+	if err != nil {
+
+		respondWithError(w, http.StatusBadRequest, "Invalid Content-Type", err)
+		return
+	}
+
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+
+		respondWithError(w, http.StatusBadRequest, "Invalid file type", err)
+		return
+	}
+	err = verifyMediaType(mediaType)
+
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid media type", err)
+		return
+	}
 
 	thumbnailData, err := io.ReadAll(fileData)
 
@@ -68,9 +87,24 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
 	}
-	encodedImage := base64.StdEncoding.EncodeToString(thumbnailData)
 
-	thumbnailURL := fmt.Sprintf("data:%s;base64,%s", mediaType, encodedImage)
+	assetPath := getAssetPath(videoID, mediaType)
+	assetDiskPath := cfg.getAssetDiskPath(assetPath)
+
+	file, err := os.Create(assetDiskPath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to create file", err)
+		return
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, bytes.NewReader(thumbnailData))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to write to disk", err)
+		return
+	}
+
+	thumbnailURL := cfg.getAssetURL(assetPath)
 
 	err = cfg.db.UpdateVideo(database.Video{
 		ID:           videoMetaData.ID,

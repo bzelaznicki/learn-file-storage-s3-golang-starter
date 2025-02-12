@@ -104,6 +104,23 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	processedFile, err := processVideoForFastStart(tempFile.Name())
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to process file", err)
+		return
+	}
+	defer os.Remove(processedFile)
+
+	procFile, err := os.Open(processedFile)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to open temporary file", err)
+		return
+	}
+
+	defer procFile.Close()
+
 	fileName, err := generateFileName()
 
 	if err != nil {
@@ -118,7 +135,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	s3PutObject := s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
 		Key:         aws.String(fullName),
-		Body:        tempFile,
+		Body:        procFile,
 		ContentType: aws.String("video/mp4"),
 	}
 

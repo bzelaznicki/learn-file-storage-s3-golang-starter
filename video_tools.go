@@ -58,3 +58,21 @@ func simplifyAspectRatio(width, height int) (int, int) {
 	divisor := gcd(width, height)
 	return width / divisor, height / divisor
 }
+
+func processVideoForFastStart(filePath string) (string, error) {
+	outputFile := filePath + ".processing"
+
+	cmd := exec.Command("ffmpeg", "-i", filePath, "-c", "copy", "-movflags", "faststart", "-f", "mp4", outputFile)
+	data := bytes.Buffer{}
+	cmd.Stdout = &data
+	errBuf := bytes.Buffer{}
+	cmd.Stderr = &errBuf
+
+	err := cmd.Run()
+
+	if err != nil {
+		return "", fmt.Errorf("failed to run ffmpeg: %s, stderr: %s", err, errBuf.String())
+	}
+
+	return outputFile, nil
+}

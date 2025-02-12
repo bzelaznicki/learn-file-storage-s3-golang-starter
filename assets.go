@@ -64,3 +64,7 @@ func verifyMediaType(mediaType string) error {
 	}
 	return nil
 }
+
+func (cfg apiConfig) generateBucketURL() string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/", cfg.s3Bucket, cfg.s3Region)
+}
